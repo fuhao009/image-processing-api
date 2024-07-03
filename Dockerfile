@@ -1,57 +1,51 @@
-# 使用官方 Golang 镜像作为构建阶段
-FROM golang:1.22 as build
+# 使用基于 Debian Bullseye 的 Golang 镜像
+FROM golang:1.22-bullseye
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装 OpenCV 依赖
-RUN apt-get update && apt-get install -y \
+# 替换镜像源为清华大学源并安装依赖
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian bullseye main contrib non-free" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian bullseye-updates main contrib non-free" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security main contrib non-free" >> /etc/apt/sources.list && \
+    apt-get clean && apt-get update && \
+    apt-get install -y \
     build-essential \
     cmake \
     git \
-    libgtk2.0-dev \
-    pkg-config \
+    libgtk2.0-0 \
     libavcodec-dev \
     libavformat-dev \
     libswscale-dev \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libjasper-dev \
-    libdc1394-22-dev
+    libjpeg62-turbo-dev \
+    libdc1394-22-dev \
+    pkg-config \
+    wget \
+    unzip && \
+    rm -rf /var/lib/apt/lists/*
 
-# 安装 GoCV 和 OpenCV
-RUN go get -u -d gocv.io/x/gocv
-WORKDIR /go/src/gocv.io/x/gocv
-RUN make install
+# 安装 OpenCV
+RUN mkdir /opencv && cd /opencv && \
+    wget -O opencv.zip https://github.com/opencv/opencv/archive/4.5.2.zip && \
+    unzip opencv.zip && \
+    mkdir -p opencv-4.5.2/build && cd opencv-4.5.2/build && \
+    cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && \
+    make install && \
+    ldconfig
 
-# 将当前目录内容复制到工作目录中
+# 设置 PKG_CONFIG_PATH 环境变量
+ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+
+# 复制项目文件到工作目录
 COPY . .
+RUN go mod download
 
-# 构建 Go 可执行文件
-RUN go build -o app .
+# 编译 Go 项目
+RUN go build -o ssim ./cmd/ssim
 
-# 使用相同的 Golang 镜像作为运行阶段
-FROM golang:1.22
-
-# 安装 OpenCV 运行时依赖
-RUN apt-get update && apt-get install -y \
-    libgtk2.0-0 \
-    libavcodec58 \
-    libavformat58 \
-    libswscale5 \
-    libjpeg62-turbo \
-    libpng16-16 \
-    libtiff5 \
-    libjasper1 \
-    libdc1394-22
-
-# 设置工作目录
-WORKDIR /root/
-
-# 从构建阶段复制文件
-COPY --from=build /app/app .
-COPY --from=build /app/assets /root/assets
-
-# 运行可执行文件
-CMD ["./app"]
+# 设置容器启动命令
+CMD ["./ssim"]
