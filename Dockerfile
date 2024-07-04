@@ -29,13 +29,13 @@ RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian bullseye main contrib 
 COPY . .
 
 # 解压 OpenCV 4.9.0 源码到指定目录
-RUN unzip /app/opencv.zip -d /app && \
-    unzip /app/opencv_contrib.zip -d /app && \
-    mv /app/opencv-4.9.0 /app/opencv && \
-    mv /app/opencv_contrib-4.9.0 /app/opencv_contrib \
+RUN unzip opencv-4.9.0.zip -d . && \
+    unzip opencv_contrib-4.9.0.zip -d . && \
+    mv opencv-4.9.0 opencv && \
+    mv opencv_contrib-4.9.0 opencv_contrib
 
 # 安装 OpenCV
-RUN cd /opencv && \
+RUN cd opencv && \
     mkdir -p build && cd build && \
     cmake -D CMAKE_BUILD_TYPE=RELEASE \
           -D CMAKE_INSTALL_PREFIX=/usr/local \
@@ -54,4 +54,4 @@ ENV PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
 RUN PKG_CONFIG_PATH=/usr/local/lib/pkgconfig go build -buildvcs=false -o image-processing-api .
 
 # 设置容器启动命令
-CMD ["./ssim"]
+CMD ["./image-processing-api"]

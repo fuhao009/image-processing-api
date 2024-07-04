@@ -1,13 +1,14 @@
 .SILENT:
-.PHONY: build build-linux
+.PHONY: build
 
-all: build-linux
+all: build-docker
 
 vendor:
 	GOPROXY=https://goproxy.cn go mod vendor
 
-build-linux:
-	docker build -t ssim-app . \
-    docker run --rm ssim-app
+build:
+	docker build -t image-processing-api .
+test:
+	docker run -it -d -p 8080:8080 -v ./data:/data image-processing-api
 
 
