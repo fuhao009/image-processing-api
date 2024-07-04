@@ -3,13 +3,14 @@ package agent
 import (
 	"fmt"
 	"gocv.io/x/gocv"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
 )
 
 type Progress struct {
-	mu       sync.Mutex
+	Mu       sync.Mutex
 	Progress map[string]float64
 }
 
@@ -17,37 +18,66 @@ var GlobalProgress = Progress{Progress: make(map[string]float64)}
 
 func ProcessImages(inputDir, outputDir string, id string) {
 	defer func() {
-		GlobalProgress.mu.Lock()
+		GlobalProgress.Mu.Lock()
 		GlobalProgress.Progress[id] = 100
-		GlobalProgress.mu.Unlock()
+		GlobalProgress.Mu.Unlock()
 	}()
 
-	img1 := gocv.IMRead(filepath.Join(inputDir, "original.jpg"), gocv.IMReadGrayScale)
-	img2 := gocv.IMRead(filepath.Join(inputDir, "target.jpg"), gocv.IMReadGrayScale)
-	if img1.Empty() || img2.Empty() {
-		fmt.Println("Error reading images")
-		return
-	}
-
-	GlobalProgress.mu.Lock()
-	GlobalProgress.Progress[id] = 50
-	GlobalProgress.mu.Unlock()
-
-	psnr := CalculatePSNR(img1, img2)
-	ssim := CalculateSSIM(img1, img2)
-
-	GlobalProgress.mu.Lock()
-	GlobalProgress.Progress[id] = 75
-	GlobalProgress.mu.Unlock()
-
-	result := fmt.Sprintf("PSNR: %f, SSIM: %f\n", psnr, ssim)
-	err := os.WriteFile(filepath.Join(outputDir, "result.txt"), []byte(result), 0644)
+	inputFiles, err := ioutil.ReadDir(inputDir)
 	if err != nil {
-		fmt.Println("Error writing result:", err)
+		fmt.Println("Error reading input directory:", err)
 		return
 	}
 
-	GlobalProgress.mu.Lock()
-	GlobalProgress.Progress[id] = 100
-	GlobalProgress.mu.Unlock()
+	outputFiles, err := ioutil.ReadDir(outputDir)
+	if err != nil {
+		fmt.Println("Error reading output directory:", err)
+		return
+	}
+
+	fileSet := make(map[string]bool)
+	for _, file := range inputFiles {
+		fileSet[file.Name()] = true
+	}
+
+	totalFiles := 0
+	for _, file := range outputFiles {
+		if _, exists := fileSet[file.Name()]; exists {
+			totalFiles++
+		}
+	}
+
+	if totalFiles == 0 {
+		fmt.Println("No matching files to process")
+		return
+	}
+
+	currentFile := 0
+	for _, file := range outputFiles {
+		if _, exists := fileSet[file.Name()]; exists {
+			img1 := gocv.IMRead(filepath.Join(inputDir, file.Name()), gocv.IMReadGrayScale)
+			img2 := gocv.IMRead(filepath.Join(outputDir, file.Name()), gocv.IMReadGrayScale)
+			if img1.Empty() || img2.Empty() {
+				fmt.Println("Error reading images:", file.Name())
+				continue
+			}
+
+			psnr := CalculatePSNR(img1, img2)
+			ssim := CalculateSSIM(img1, img2)
+
+			result := fmt.Sprintf("Image: %s, PSNR: %f, SSIM: %f\n", file.Name(), psnr, ssim)
+			err := os.WriteFile(filepath.Join(outputDir, file.Name()+".result.txt"), []byte(result), 0644)
+			if err != nil {
+				fmt.Println("Error writing result for", file.Name(), ":", err)
+				continue
+			}
+
+			currentFile++
+			progress := (float64(currentFile) / float64(totalFiles)) * 100
+
+			GlobalProgress.Mu.Lock()
+			GlobalProgress.Progress[id] = progress
+			GlobalProgress.Mu.Unlock()
+		}
+	}
 }

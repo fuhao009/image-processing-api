@@ -1,17 +1,18 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
 	"image-processing-api/agent"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func ProgressHandler(c *gin.Context) {
 	id := c.Query("id")
 
-	agent.GlobalProgress.mu.Lock()
-	defer agent.GlobalProgress.mu.Unlock()
+	agent.GlobalProgress.Mu.Lock()
 	prog, exists := agent.GlobalProgress.Progress[id]
+	agent.GlobalProgress.Mu.Unlock()
 
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{
