@@ -23,14 +23,15 @@ RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian bullseye main contrib 
     libjpeg62-turbo-dev \
     libdc1394-22-dev \
     pkg-config \
-    wget \
     unzip && \
     rm -rf /var/lib/apt/lists/*
 
+# 复制本地的 OpenCV zip 文件
+COPY opencv-4.5.2.zip /opencv/opencv-4.5.2.zip
+
 # 安装 OpenCV
-RUN mkdir /opencv && cd /opencv && \
-    wget -O opencv.zip https://github.com/opencv/opencv/archive/4.5.2.zip && \
-    unzip opencv.zip && \
+RUN cd /opencv && \
+    unzip opencv-4.5.2.zip && \
     mkdir -p opencv-4.5.2/build && cd opencv-4.5.2/build && \
     cmake -D CMAKE_BUILD_TYPE=RELEASE -D CMAKE_INSTALL_PREFIX=/usr/local .. && \
     make -j$(nproc) && \
