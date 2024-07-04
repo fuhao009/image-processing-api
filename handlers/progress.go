@@ -9,9 +9,9 @@ import (
 func ProgressHandler(c *gin.Context) {
 	id := c.Query("id")
 
-	agent.Progress.mu.Lock()
-	defer agent.Progress.mu.Unlock()
-	prog, exists := agent.Progress.progress[id]
+	agent.GlobalProgress.mu.Lock()
+	defer agent.GlobalProgress.mu.Unlock()
+	prog, exists := agent.GlobalProgress.Progress[id]
 
 	if !exists {
 		c.JSON(http.StatusNotFound, gin.H{
